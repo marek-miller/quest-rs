@@ -221,7 +221,7 @@ impl<'a> QuReg<'a> {
     pub fn environment_string(&self) -> String {
         let mut env_str: Vec<c_char> = vec![0; 200];
         unsafe {
-            ffi::getEnvironmentString(self.env.into(), self.reg, env_str.as_mut_ptr());
+            ffi::getEnvironmentString(self.env.into(), env_str.as_mut_ptr());
             CStr::from_ptr(env_str.as_ptr())
                 .to_string_lossy()
                 .into_owned()

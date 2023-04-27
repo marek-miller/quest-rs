@@ -1,6 +1,3 @@
-use bindgen;
-use cmake;
-
 use std::collections::HashSet;
 use std::env;
 use std::path::PathBuf;
