@@ -516,12 +516,12 @@ impl ComplexMatrixN {
     pub fn display(&self) -> String {
         let mut out = String::new();
         for i in 0..self.num_rows {
-            out.push_str("[");
+            out.push('[');
             for j in 0..self.num_rows {
                 let value = self.get(i, j);
                 out.push_str(&format!("({:.5} + {:.5}j)", value.real, value.imag));
                 if j != self.num_rows - 1 {
-                    out.push_str("\t");
+                    out.push('\t');
                 }
             }
             out.push_str("]\n");

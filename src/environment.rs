@@ -1,4 +1,4 @@
-use crate::ffi;
+use crate::ffi::{self, QuESTEnv};
 
 /// QuEST Environment
 pub struct QuestEnv {
@@ -53,9 +53,14 @@ impl From<&QuestEnv> for ffi::QuESTEnv {
     }
 }
 
-pub fn seed_quest(seed_values: Vec<u64>) {
+pub fn seed_quest(env: &mut QuestEnv, seed_values: Vec<u64>) {
+    let env_ptr: *mut QuESTEnv = &mut env.env;
     unsafe {
-        ffi::seedQuEST(seed_values.as_ptr() as *mut u64, seed_values.len() as i32);
+        ffi::seedQuEST(
+            env_ptr,
+            seed_values.as_ptr() as *mut u64,
+            seed_values.len() as i32,
+        );
     }
 }
 
@@ -70,8 +75,9 @@ pub fn seed_quest(seed_values: Vec<u64>) {
 ///
 /// For more information about the MT, see:
 /// http://www.math.sci.hiroshima-u.ac.jp/~m-mat/MT/MT2002/emt19937ar.html.
-pub fn seed_quest_default() {
+pub fn seed_quest_default(env: &mut QuestEnv) {
+    let env_ptr: *mut QuESTEnv = &mut env.env;
     unsafe {
-        ffi::seedQuESTDefault();
+        ffi::seedQuESTDefault(env_ptr);
     }
 }
