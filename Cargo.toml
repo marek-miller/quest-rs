@@ -29,3 +29,4 @@ cmake = "0.1.42"
 [dev-dependencies]
 
 [dependencies]
+rand = "0.8.5"
