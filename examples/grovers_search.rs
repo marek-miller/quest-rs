@@ -12,6 +12,26 @@ enum Error {
     KeyOutOfBound,
 }
 
+fn oracle(reg: &mut GroverReg, key: i64) -> QReal {
+    let num_qubits = reg.num_qubits;
+    for q in 0..num_qubits {
+        if ((key >> q) & 1) == 0 {
+            reg.qureg.pauli_x(q);
+        }
+    }
+
+    reg.qureg
+        .multi_controlled_phase_flip((0..num_qubits).collect());
+
+    for q in 0..num_qubits {
+        if ((key >> q) & 1) == 0 {
+            reg.qureg.pauli_x(q);
+        }
+    }
+
+    reg.qureg.probability_amplitude(key)
+}
+
 struct GroverReg<'a> {
     qureg: QuReg<'a>,
     num_qubits: i32,
@@ -25,36 +45,12 @@ impl<'a> GroverReg<'a> {
         }
     }
 
-    // effect |solElem> -> -|solElem> via a
-    // multi-controlled phase flip gate
-    fn apply_oracle(&mut self, key: i32) {
-        // apply X to transform |111> into |solElem>
-
-        for q in 0..self.num_qubits {
-            if ((key >> q) & 1) == 0 {
-                self.qureg.pauli_x(q);
-            }
-        }
-
-        // effect |111> -> -|111>
-        self.qureg
-            .multi_controlled_phase_flip((0..self.num_qubits).collect());
-
-        // apply X to transform |solElem> into |111>
-        for q in 0..self.num_qubits {
-            if ((key >> q) & 1) == 0 {
-                self.qureg.pauli_x(q);
-            }
-        }
-    }
-
-    fn apply_diffuser(&mut self) {
+    fn diffuse(&mut self) {
         // apply H to transform |+> into |0>
         // apply X to transform |11..1> into |00..0>
         (0..self.num_qubits).fold(&mut self.qureg, |q, i| q.hadamard(i).pauli_x(i));
 
         // effect |11..1> -> -|11..1>
-        // effect |111> -> -|111>
         self.qureg
             .multi_controlled_phase_flip((0..self.num_qubits).collect());
 
@@ -65,16 +61,16 @@ impl<'a> GroverReg<'a> {
 }
 
 trait GroverSearch {
-    fn key_bound(&self) -> i32;
-    fn find_key<'a>(&'a mut self, key: i32) -> Result<&'a QuReg<'a>, Error>;
+    fn key_bound(&self) -> i64;
+    fn find_key<'a>(&'a mut self, key: i64) -> Result<&'a GroverReg<'a>, Error>;
 }
 
 impl<'a> GroverSearch for GroverReg<'a> {
-    fn key_bound(&self) -> i32 {
+    fn key_bound(&self) -> i64 {
         1 << self.num_qubits
     }
 
-    fn find_key(&mut self, key: i32) -> Result<&QuReg<'a>, Error> {
+    fn find_key(&mut self, key: i64) -> Result<&GroverReg<'a>, Error> {
         if key < 0 || key >= self.key_bound() {
             Err(Error::KeyOutOfBound)
         } else {
@@ -85,11 +81,11 @@ impl<'a> GroverSearch for GroverReg<'a> {
 
             // apply Grover's algorithm
             for _ in 0..num_reps {
-                self.apply_oracle(key);
-                self.apply_diffuser();
+                oracle(self, key);
+                self.diffuse();
             }
 
-            Ok(&self.qureg)
+            Ok(self)
         }
     }
 }
@@ -98,8 +94,8 @@ fn main() {
     let env = QuestEnv::new();
 
     // choose the system size
-    const NUM_QUBITS: i32 = 15;
-    const NUM_ELEMS: i32 = 1 << NUM_QUBITS;
+    const NUM_QUBITS: i64 = 15;
+    const NUM_ELEMS: i64 = 1 << NUM_QUBITS;
     let num_reps = f64::ceil(PI / 4.0 * (NUM_ELEMS as QReal).sqrt()) as usize;
 
     println!("num_qubits: {NUM_QUBITS}, num_elems: {NUM_ELEMS}, num_reps: {num_reps}");
@@ -108,11 +104,14 @@ fn main() {
     let sol_elem = std::time::SystemTime::now()
         .duration_since(std::time::SystemTime::UNIX_EPOCH)
         .unwrap()
-        .subsec_nanos() as i32
+        .subsec_nanos() as i64
         % NUM_ELEMS;
 
     let mut grov_reg = GroverReg::new(&env, 15);
-    if let Ok(qubit) = grov_reg.find_key(sol_elem) {
-        println!("prob. = {}", qubit.probability_amplitude(sol_elem as i64));
+    if let Ok(reg) = grov_reg.find_key(sol_elem) {
+        println!(
+            "prob. = {}",
+            reg.qureg.probability_amplitude(sol_elem as i64)
+        );
     }
 }
