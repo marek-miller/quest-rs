@@ -7,6 +7,93 @@ use std::f64::consts::PI;
 
 use quest_rs::{QReal, QuReg, QuestEnv};
 
+#[derive(Debug)]
+enum Error {
+    KeyOutOfBound,
+}
+
+struct GroverReg<'a> {
+    qureg: QuReg<'a>,
+    num_qubits: i32,
+}
+
+impl<'a> GroverReg<'a> {
+    fn new(env: &'a QuestEnv, num_qubits: i32) -> Self {
+        GroverReg {
+            qureg: QuReg::new(num_qubits, env),
+            num_qubits,
+        }
+    }
+
+    // effect |solElem> -> -|solElem> via a
+    // multi-controlled phase flip gate
+    fn apply_oracle(&mut self, key: i32) {
+        // apply X to transform |111> into |solElem>
+
+        for q in 0..self.num_qubits {
+            if ((key >> q) & 1) == 0 {
+                self.qureg.pauli_x(q);
+            }
+        }
+
+        // effect |111> -> -|111>
+        self.qureg
+            .multi_controlled_phase_flip((0..self.num_qubits).collect());
+
+        // apply X to transform |solElem> into |111>
+        for q in 0..self.num_qubits {
+            if ((key >> q) & 1) == 0 {
+                self.qureg.pauli_x(q);
+            }
+        }
+    }
+
+    fn apply_diffuser(&mut self) {
+        // apply H to transform |+> into |0>
+        // apply X to transform |11..1> into |00..0>
+        (0..self.num_qubits).fold(&mut self.qureg, |q, i| q.hadamard(i).pauli_x(i));
+
+        // effect |11..1> -> -|11..1>
+        // effect |111> -> -|111>
+        self.qureg
+            .multi_controlled_phase_flip((0..self.num_qubits).collect());
+
+        // apply X to transform |00..0> into |11..1>
+        // apply H to transform |0> into |+>
+        (0..self.num_qubits).fold(&mut self.qureg, |q, i| q.pauli_x(i).hadamard(i));
+    }
+}
+
+trait GroverSearch {
+    fn key_bound(&self) -> i32;
+    fn find_key<'a>(&'a mut self, key: i32) -> Result<&'a QuReg<'a>, Error>;
+}
+
+impl<'a> GroverSearch for GroverReg<'a> {
+    fn key_bound(&self) -> i32 {
+        1 << self.num_qubits
+    }
+
+    fn find_key(&mut self, key: i32) -> Result<&QuReg<'a>, Error> {
+        if key < 0 || key >= self.key_bound() {
+            Err(Error::KeyOutOfBound)
+        } else {
+            self.qureg.init_plus_state();
+
+            let num_elems = 1 << self.num_qubits;
+            let num_reps = f64::ceil(PI / 4.0 * (num_elems as QReal).sqrt()) as usize;
+
+            // apply Grover's algorithm
+            for _ in 0..num_reps {
+                self.apply_oracle(key);
+                self.apply_diffuser();
+            }
+
+            Ok(&self.qureg)
+        }
+    }
+}
+
 fn main() {
     let env = QuestEnv::new();
 
@@ -24,54 +111,8 @@ fn main() {
         .subsec_nanos() as i32
         % NUM_ELEMS;
 
-    // prepare |+>
-    let mut qureg = QuReg::new(NUM_QUBITS, &env);
-    let qureg = qureg.init_plus_state();
-
-    // effect |solElem> -> -|solElem> via a
-    // multi-controlled phase flip gate
-    let apply_oracle = |qureg: &mut QuReg| {
-        // apply X to transform |111> into |solElem>
-
-        for q in 0..NUM_QUBITS {
-            if ((sol_elem >> q) & 1) == 0 {
-                qureg.pauli_x(q);
-            }
-        }
-
-        // effect |111> -> -|111>
-        qureg.multi_controlled_phase_flip((0..NUM_QUBITS).collect());
-
-        // apply X to transform |solElem> into |111>
-        for q in 0..NUM_QUBITS {
-            if ((sol_elem >> q) & 1) == 0 {
-                qureg.pauli_x(q);
-            }
-        }
-    };
-
-    let apply_diffuser = |qureg: &mut QuReg| {
-        // apply H to transform |+> into |0>
-        // apply X to transform |11..1> into |00..0>
-        let qureg = (0..NUM_QUBITS).fold(qureg, |q, i| q.hadamard(i).pauli_x(i));
-
-        // effect |11..1> -> -|11..1>
-        // effect |111> -> -|111>
-        qureg.multi_controlled_phase_flip((0..NUM_QUBITS).collect());
-
-        // apply X to transform |00..0> into |11..1>
-        // apply H to transform |0> into |+>
-        (0..NUM_QUBITS).fold(qureg, |q, i| q.pauli_x(i).hadamard(i));
-    };
-
-    // apply Grover's algorithm
-    for _ in 0..num_reps {
-        apply_oracle(qureg);
-        apply_diffuser(qureg);
-        println!(
-            "prob of solution |{}> = {}",
-            sol_elem,
-            qureg.probability_amplitude(sol_elem as i64)
-        );
+    let mut grov_reg = GroverReg::new(&env, 15);
+    if let Ok(qubit) = grov_reg.find_key(sol_elem) {
+        println!("prob. = {}", qubit.probability_amplitude(sol_elem as i64));
     }
 }
