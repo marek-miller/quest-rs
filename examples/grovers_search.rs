@@ -70,7 +70,7 @@ fn main() {
     let env = QuestEnv::new();
 
     // choose the system size
-    const NUM_QUBITS: i32 = 20;
+    const NUM_QUBITS: i32 = 15;
     let num_elems = 1 << NUM_QUBITS;
     let num_reps = f64::ceil(PI / 4.0 * (num_elems as QReal).sqrt()) as usize;
 
