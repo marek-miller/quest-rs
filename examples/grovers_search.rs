@@ -6,7 +6,6 @@
 use std::f64::consts::PI;
 
 use quest_rs::{QReal, QuReg, QuestEnv};
-use rand::random;
 
 // effect |solElem> -> -|solElem> via a
 // multi-controlled phase flip gate
@@ -76,8 +75,12 @@ fn main() {
 
     println!("num_qubits: {NUM_QUBITS}, num_elems: {num_elems}, num_reps: {num_reps}");
 
-    // randomly choose the element for which to search
-    let sol_elem = random::<i32>().abs() % num_elems;
+    // "randomly" choose the element for which to search
+    let sol_elem = std::time::SystemTime::now()
+        .duration_since(std::time::SystemTime::UNIX_EPOCH)
+        .unwrap()
+        .subsec_nanos() as i32
+        % num_elems;
 
     // prepare |+>
     let mut qureg = QuReg::new(NUM_QUBITS, &env);
