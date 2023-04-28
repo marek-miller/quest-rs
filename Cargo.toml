@@ -12,12 +12,15 @@ keywords = ["quantum", "simulation", "wrappers", "hpc", "physics"]
 categories = ["simulation", "api-bindings", "science"]
 readme = "README.md"
 
+[lib]
+doctest = false
+
 [badges]
 # Once https://github.com/rust-lang/crates.io/pull/1838 is merged, we can add
 # the GitHub actions badge in here.
 
 [package.metadata.docs.rs]
-rustdoc-args = [ "--html-in-header", "docs/header.html" ]
+rustdoc-args = ["--html-in-header", "docs/header.html"]
 
 [build-dependencies]
 bindgen = "0.53.2"

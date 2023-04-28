@@ -1,3 +1,6 @@
+extern crate bindgen;
+extern crate cmake;
+
 use std::collections::HashSet;
 use std::env;
 use std::path::PathBuf;
