@@ -11,7 +11,7 @@ use quest_rs::{QReal, QuReg, QuestEnv};
 // multi-controlled phase flip gate
 fn apply_oracle(qureg: &mut QuReg, num_qubits: i32, sol_elem: i32) {
     // apply X to transform |111> into |solElem>
-    //  for (int q=0; q<num_qubits; q++)
+
     for q in 0..num_qubits {
         if ((sol_elem >> q) & 1) == 0 {
             qureg.pauli_x(q);
@@ -19,8 +19,7 @@ fn apply_oracle(qureg: &mut QuReg, num_qubits: i32, sol_elem: i32) {
     }
 
     // effect |111> -> -|111>
-    let control_qubits = (0..num_qubits).collect::<Vec<_>>();
-    qureg.multi_controlled_phase_flip(control_qubits);
+    qureg.multi_controlled_phase_flip((0..num_qubits).collect());
 
     // apply X to transform |solElem> into |111>
     for q in 0..num_qubits {
@@ -40,29 +39,16 @@ fn apply_oracle(qureg: &mut QuReg, num_qubits: i32, sol_elem: i32) {
 // the irrelevant global phase pi
 fn apply_diffuser(qureg: &mut QuReg, num_qubits: i32) {
     // apply H to transform |+> into |0>
-    for q in 0..num_qubits {
-        qureg.hadamard(q);
-    }
-
     // apply X to transform |11..1> into |00..0>
-    for q in 0..num_qubits {
-        qureg.pauli_x(q);
-    }
+    let qureg = (0..num_qubits).fold(qureg, |q, i| q.hadamard(i).pauli_x(i));
 
     // effect |11..1> -> -|11..1>
     // effect |111> -> -|111>
-    let control_qubits = (0..num_qubits).collect::<Vec<_>>();
-    qureg.multi_controlled_phase_flip(control_qubits);
+    qureg.multi_controlled_phase_flip((0..num_qubits).collect());
 
     // apply X to transform |00..0> into |11..1>
-    for q in 0..num_qubits {
-        qureg.pauli_x(q);
-    }
-
     // apply H to transform |0> into |+>
-    for q in 0..num_qubits {
-        qureg.hadamard(q);
-    }
+    (0..num_qubits).fold(qureg, |q, i| q.pauli_x(i).hadamard(i));
 }
 
 fn main() {
